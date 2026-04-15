@@ -1,0 +1,33 @@
+# Build artifacts
+build/
+*.o
+*.so
+*.exe
+
+# Profiling output
+*.ncu-rep
+*.nsys-rep
+*.qdrep
+*.sqlite
+
+# Results (keep .gitkeep, ignore everything else)
+results/*
+!results/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+*.egg-info/
+.venv/
+venv/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# Notebook outputs (uncomment if you want to strip them)
+# notebooks/*.ipynb
