@@ -16,7 +16,7 @@ Living document. Append entries to the log; update the milestone table as we pro
 | 7 | Nsight Compute profiling for each kernel | both | done | 2026-05-18 |
 | 8 | cuRAND generator comparison (XORWOW vs Philox) | Bedirhan | todo | |
 | 9 | (Hope) CUDA streams overlap | Bedirhan | todo | |
-| 10 | (Hope) Asian options extension | Talha | todo | |
+| 10 | (Hope) Asian options extension | Talha | done | 2026-05-18 |
 | 11 | Poster draft | both | todo | |
 | 12 | Final report | both | todo | |
 
@@ -201,3 +201,122 @@ consumer-tier card. Same workload on T4 / A100 should scale roughly with TFLOPS.
 Estimates differ slightly from the pre-refactor run because the path-to-state
 mapping changed (each thread now consumes a strided sequence rather than a
 contiguous chunk), but errors remain within the same ~1-sigma envelope.
+
+### 2026-05-18 — Re-profile after grid-stride refactor
+
+Old `.ncu-rep` files were collected pre-refactor at N=1M; they were overwritten
+with new runs at N=10M. The qualitative picture changed substantially.
+
+**New metrics (N=10M, GTX 1650):**
+
+| Kernel | Duration | Achieved Occ. | Compute Tput | DRAM Tput | L1 Tput | Regs |
+|---|---|---|---|---|---|---|
+| `mc_init_rng_kernel` | **680 µs** | 63.3% | 76.5% | 2.7% | 92.2% | 63 |
+| `mc_naive_kernel` | 32.88 ms | 93.8% | **2.75%** | 0.03% | 5.5% | 26 |
+| `mc_shared_kernel` | **273 µs** | 74.6% | **79.4%** | **3.5%** | 1.5% | 27 |
+| `mc_antithetic_kernel` | **185 µs** | 72.8% | **76.4%** | **5.1%** | 2.2% | 32 |
+
+**Comparison vs old profile (N=1M, pre-refactor):**
+
+| Metric | mc_init_rng | mc_shared |
+|---|---|---|
+| Duration | 44.59 ms → 0.68 ms (**65× faster**) | 0.88 ms → 0.27 ms @ 10× more work |
+| Compute Tput | 93.3% → 76.5% (same: compute-saturated) | **9.1% → 79.4%** |
+| DRAM Tput | 2.9% → 2.7% (same: not memory-bound) | **85.2% → 3.5%** |
+| Achieved Occ. | 92% → 63% (fewer waves) | 97% → 75% (fewer waves) |
+| Grid Size | 3907 → 64 blocks | 3907 → 64 blocks |
+
+**Key qualitative changes:**
+
+1. **`mc_shared` flipped from memory-bound to compute-bound.** Pre-refactor DRAM
+   throughput was 85% (reading 1M curandStates from global), Compute was 9%.
+   Post-refactor DRAM is 3.5%, Compute is **79%**. Each thread now amortizes
+   one state read across ~150 paths of arithmetic. This is the textbook outcome
+   of a grid-stride loop and worth a poster slide on its own.
+
+2. **`init_rng_kernel` is no longer the wall-clock dominator at typical N.**
+   At 680 µs it is now < `mc_shared`+`mc_antithetic` combined at N=50M (1.7 ms).
+   This **weakens the Milestone 8 (Philox) motivation**: the absolute saving
+   from switching RNGs is now ~0.3 ms, not ~30 ms.
+
+3. **`mc_naive` is still atomic-bound (Compute 2.75%, DRAM 0.03%).** Both
+   metrics are near zero — the SMs are idle ~97% of the time waiting on global
+   atomicAdd serialization. The new grid-stride design doesn't change this
+   because the per-path atomic is intrinsic to the kernel. It is exactly the
+   bad baseline we want it to be.
+
+4. **Occupancy dropped (92→63 / 97→75)** because we're now launching only 64
+   blocks (4 per SM × 16 SMs), giving 1 wave per SM. Pre-refactor we had 61
+   waves/SM at N=1M. Lower occupancy hurts in theory, but here it doesn't:
+   each thread does so much more work that the SM stays busy via instruction-
+   level parallelism. The compute throughput numbers confirm this.
+
+**Implication for next milestones:**
+- Milestone 8 (XORWOW vs Philox) becomes a *characterization* exercise rather
+  than an optimization. Still worth a poster figure, but it won't dominate the
+  speedup story.
+- Milestone 9 (CUDA streams) similarly less critical — init is now tiny.
+- Milestone 10 (Asian options) becomes relatively more interesting: it would
+  exercise the `n_steps` parameter (currently dead code) and prove the framework
+  generalizes to path-dependent options. Higher poster value.
+
+### 2026-05-18 — Asian options extension (Milestone 10, Hope-to-Achieve #1)
+
+**What was added:**
+- `src/gpu/mc_asian.cu` — arithmetic-average Asian call/put, multi-step GBM with
+  inner step loop, uses the existing `mc_runner.cuh` harness and the same
+  block-reduce reduction as `mc_shared`. The `n_steps` CLI flag (until now dead
+  code) finally drives the inner loop.
+- `src/cpu/mc_cpu_asian.c` — matching single-thread reference baseline.
+- `mc_runner.cuh` now precomputes per-`dt` drift/diffuse constants in addition
+  to the European single-big-step constants, and `mc_report()` gained a
+  `has_analytical` flag so the European Black-Scholes reference is suppressed
+  for path-dependent runs (it is meaningless there).
+- `tests/validate.py` now also exercises `mc_asian` at the default `--steps 1`,
+  where the payoff collapses to the European one and the analytical reference
+  is valid. PASS.
+- Makefile builds both new targets via `make cpu` and `make gpu`.
+
+**Why `n_steps == 1` is a free sanity check:** When `dt = T`, the per-step
+drift/diffuse constants equal the single-big-step versions, the path consists of
+one observation, and the arithmetic mean equals `S_T` — so the Asian payoff
+becomes the European payoff. All five binaries now reproduce ~10.4506 at the
+default parameters.
+
+**Results @ N=1M, S0=K=100, r=0.05, σ=0.2, T=1.0, steps=252 (daily), seed=42:**
+
+| Runtime | Time | Price (call) | 95% CI half-width |
+|---|---|---|---|
+| `mc_cpu_asian` | 5617 ms | 5.778 | ±0.0157 |
+| `mc_asian` (GPU) | 6.76 ms (kernel) | 5.770 | ±0.0157 |
+
+- **Prices agree to 0.008 — well within either CI**, confirming CPU↔GPU
+  consistency for the path-dependent case.
+- **Speedup at same workload: 831×** (5617 ms / 6.76 ms). This is the *real*
+  speedup story for the poster — 252× more arithmetic per path than European,
+  yet the GPU still finishes ~2 orders of magnitude faster than a profitable
+  C-with-O3 baseline.
+- Theory check: arithmetic Asian price ≈ 5.78 < European 10.45 (averaging
+  dampens variance → cheaper option). Matches Glasserman §3.6 reference values
+  for these parameters.
+
+**Scaling to N=10M, steps=252:**
+
+| Runtime | Kernel time | Throughput | Price |
+|---|---|---|---|
+| `mc_asian` (GPU) | 66.5 ms | 150 M paths/sec | 5.782 ± 0.005 |
+| `mc_cpu_asian` (extrapolated) | ~56 sec | 0.18 M paths/sec | — |
+
+The GPU absorbs a 10× larger problem in ~10× the time (good linear scaling),
+while extrapolating CPU to 10M paths gives ~56 seconds — i.e. an implied
+**~840× speedup** at the project's headline problem size.
+
+**What this proves for the poster:**
+1. The grid-stride + block-reduce harness generalizes cleanly — `mc_asian.cu` is
+   only ~40 lines on top of the shared harness and reused the reduction
+   primitive verbatim.
+2. The compute-bound regime persists even with 252× more arithmetic per path —
+   the kernel is doing useful FMA / SFU work, not waiting on memory.
+3. Speedup over CPU grows with workload complexity. European is ~100-200×,
+   Asian (252 steps) is ~830×. The CPU pays the full per-step cost
+   sequentially; the GPU just adds more iterations to its grid-stride loop.

@@ -28,6 +28,7 @@ KERNELS = [
     f"./build/mc_naive{EXE}",
     f"./build/mc_shared{EXE}",
     f"./build/mc_antithetic{EXE}",
+    f"./build/mc_asian{EXE}",       # at default steps=1 reduces to European
 ]
 
 def parse(out):

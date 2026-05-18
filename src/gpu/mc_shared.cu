@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
     CUDA_CHECK(cudaGetLastError());
     r.kernel_ms = cuda_timer_stop(&r.t_kernel);
 
-    mc_report(&r, "shared", r.p.n_paths);
+    mc_report(&r, "shared", r.p.n_paths, /*has_analytical=*/1);
     mc_teardown(&r);
     return 0;
 }

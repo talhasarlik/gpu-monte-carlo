@@ -18,7 +18,11 @@
       "PowerShell(nvcc -O3 -arch=sm_75 -lineinfo -std=c++14 -o build\\\\mc_naive.exe src\\\\gpu\\\\mc_naive.cu 2>&1 | Select-Object -Last 20; Write-Output \"exit=$LASTEXITCODE\")",
       "PowerShell(python tests\\\\validate.py 2>&1)",
       "PowerShell(Get-Command py,python,python3,python.exe -ErrorAction SilentlyContinue)",
-      "PowerShell(py tests\\\\validate.py 2>&1)"
+      "PowerShell(py tests\\\\validate.py 2>&1)",
+      "Skill(monte-carlo-theory)",
+      "Skill(monte-carlo-theory:*)",
+      "PowerShell(.\\\\build\\\\mc_asian.exe     --paths 1000000 --steps 1)",
+      "PowerShell(.\\\\build\\\\mc_cpu_asian.exe --paths  100000 --steps 1)"
     ]
   }
 }

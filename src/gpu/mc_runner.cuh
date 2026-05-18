@@ -31,7 +31,8 @@
 
 typedef struct {
     mc_params_t  p;
-    float        drift, diffuse, discount;
+    float        drift, diffuse, discount;        /* single big step (European)        */
+    float        drift_step, diffuse_step;        /* one dt = T/n_steps  (Asian, etc.) */
     int          grid_blocks, block_size, total_threads;
     curandState *d_states;
     float       *d_sum, *d_sum_sq;
@@ -52,6 +53,10 @@ static inline void mc_setup(mc_run_t *r, int argc, char **argv) {
     r->drift    = (float)((r->p.r - 0.5 * r->p.sigma * r->p.sigma) * r->p.T);
     r->diffuse  = (float)(r->p.sigma * sqrt(r->p.T));
     r->discount = (float)exp(-r->p.r * r->p.T);
+
+    double dt = r->p.T / (double)(r->p.n_steps > 0 ? r->p.n_steps : 1);
+    r->drift_step   = (float)((r->p.r - 0.5 * r->p.sigma * r->p.sigma) * dt);
+    r->diffuse_step = (float)(r->p.sigma * sqrt(dt));
 
     int sm_count = 0;
     CUDA_CHECK(cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, 0));
@@ -74,11 +79,15 @@ static inline void mc_setup(mc_run_t *r, int argc, char **argv) {
     r->init_ms = cuda_timer_stop(&r->t_init);
 }
 
-/* n_samples = divisor for the empirical mean.
- *   - naive / shared: n_paths
- *   - antithetic   : n_pairs (each pair contributes one effective sample)
+/* n_samples       = divisor for the empirical mean.
+ *                   naive/shared: n_paths; antithetic: n_pairs.
+ * has_analytical  = 1 if European Black-Scholes is the correct ground truth for
+ *                   this run (the standard case); 0 for path-dependent options
+ *                   where the closed-form reference does not apply (e.g. Asian
+ *                   with n_steps > 1).
  */
-static inline void mc_report(mc_run_t *r, const char *kernel_label, long n_samples) {
+static inline void mc_report(mc_run_t *r, const char *kernel_label,
+                             long n_samples, int has_analytical) {
     float h_sum = 0.0f, h_sum_sq = 0.0f;
     CUDA_CHECK(cudaMemcpy(&h_sum,    r->d_sum,    sizeof(float), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMemcpy(&h_sum_sq, r->d_sum_sq, sizeof(float), cudaMemcpyDeviceToHost));
@@ -90,15 +99,16 @@ static inline void mc_report(mc_run_t *r, const char *kernel_label, long n_sampl
     double price   = r->discount * mean;
     double price_err = r->discount * std_err;
 
-    double analytical = r->p.is_call
-        ? bs_call(r->p.S0, r->p.K, r->p.r, r->p.sigma, r->p.T)
-        : bs_put (r->p.S0, r->p.K, r->p.r, r->p.sigma, r->p.T);
-
     printf("GPU (%s) Monte Carlo result:\n", kernel_label);
     printf("  estimate     = %.6f  (95%% CI: %.6f +/- %.6f)\n",
            price, price, 1.96 * price_err);
-    printf("  analytical   = %.6f\n", analytical);
-    printf("  abs error    = %.6f\n", fabs(price - analytical));
+    if (has_analytical) {
+        double analytical = r->p.is_call
+            ? bs_call(r->p.S0, r->p.K, r->p.r, r->p.sigma, r->p.T)
+            : bs_put (r->p.S0, r->p.K, r->p.r, r->p.sigma, r->p.T);
+        printf("  analytical   = %.6f\n", analytical);
+        printf("  abs error    = %.6f\n", fabs(price - analytical));
+    }
     printf("  init time    = %.2f ms\n", r->init_ms);
     printf("  kernel time  = %.2f ms\n", r->kernel_ms);
     printf("  throughput   = %.2f M paths/sec\n", r->p.n_paths / r->kernel_ms / 1000.0);
