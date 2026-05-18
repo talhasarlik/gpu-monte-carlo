@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash benchmarks/run_all.sh)",
+      "Bash(py benchmarks/plot.py)",
+      "Bash(ncu --version)",
+      "Read(//c/Program Files/NVIDIA/**)",
+      "PowerShell(.\\\\build\\\\mc_cpu.exe --paths 1000000)",
+      "PowerShell(.\\\\build\\\\mc_naive.exe --paths 1000000)",
+      "PowerShell(.\\\\build\\\\mc_shared.exe --paths 1000000)",
+      "PowerShell(.\\\\build\\\\mc_antithetic.exe --paths 1000000)",
+      "PowerShell(ncu --version 2>&1)",
+      "PowerShell(Get-Command ncu -ErrorAction SilentlyContinue)",
+      "PowerShell(\\(Get-Command ncu\\).Source; Write-Output \"---\"; nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv 2>&1)",
+      "Skill(cuda-profiling)",
+      "Skill(cuda-profiling:*)",
+      "PowerShell(ncu --print-summary per-kernel .\\\\build\\\\mc_naive.exe --paths 1000000 2>&1)",
+      "PowerShell(nvcc -O3 -arch=sm_75 -lineinfo -std=c++14 -o build\\\\mc_naive.exe src\\\\gpu\\\\mc_naive.cu 2>&1 | Select-Object -Last 20; Write-Output \"exit=$LASTEXITCODE\")",
+      "PowerShell(python tests\\\\validate.py 2>&1)",
+      "PowerShell(Get-Command py,python,python3,python.exe -ErrorAction SilentlyContinue)",
+      "PowerShell(py tests\\\\validate.py 2>&1)"
+    ]
+  }
+}

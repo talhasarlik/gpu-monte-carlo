@@ -27,6 +27,8 @@ agg = (df.groupby(["kernel", "n_paths"])
          .agg(kernel_ms=("kernel_ms", "median"),
               abs_error=("abs_error", "median"))
          .reset_index())
+# Strip .exe suffix from kernel names for cleaner labels
+agg["kernel"] = agg["kernel"].str.replace(r"\.exe$", "", regex=True)
 agg["throughput"] = agg["n_paths"] / agg["kernel_ms"] / 1000.0  # M paths/sec
 
 # Throughput plot
