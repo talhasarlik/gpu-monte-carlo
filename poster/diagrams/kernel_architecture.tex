@@ -1,0 +1,86 @@
+% Side-by-side schematic of where each kernel performs its reduction.
+% \input{} inside a \block{}.
+\begin{center}
+\begin{tikzpicture}[
+    >=Latex,
+    panel/.style    = {rectangle, rounded corners=2pt, draw=black!60, thick,
+                       minimum width=58mm, minimum height=70mm, align=center,
+                       inner sep=2mm},
+    naive/.style    = {panel, fill=red!7},
+    shared/.style   = {panel, fill=blue!7},
+    anti/.style     = {panel, fill=green!7},
+    head/.style     = {font=\bfseries\large, align=center},
+    sub/.style      = {font=\footnotesize\itshape, color=black!60, align=center},
+    body/.style     = {font=\footnotesize, align=center},
+    thread/.style   = {rectangle, draw=black!50, fill=white, minimum width=6.5mm,
+                       minimum height=4mm, inner sep=0pt, font=\tiny},
+    glob/.style     = {rectangle, rounded corners=1pt, draw=black!70, fill=orange!18,
+                       minimum width=46mm, minimum height=7mm, font=\footnotesize},
+    blkacc/.style   = {rectangle, rounded corners=1pt, draw=black!70, fill=blue!18,
+                       minimum width=46mm, minimum height=7mm, font=\footnotesize},
+    arr/.style      = {->, thick, >=Latex, draw=black!70},
+    contend/.style  = {->, thick, >=Latex, draw=red!75, dashed},
+]
+
+% =============================== Panel 1: NAIVE ===============================
+\begin{scope}[xshift=0mm]
+  \node[naive] (P1) at (0, 0) {};
+  \node[head]  at (0,  32mm) {\textsc{mc\_naive}};
+  \node[sub]   at (0,  27mm) {one atomicAdd per path};
+  % 8 threads in a row
+  \foreach \i in {0,...,7} {
+      \node[thread] (T1_\i) at (-23mm + \i*6.5mm,  16mm) {t\i};
+  }
+  \node[glob] (G1) at (0, -8mm) {\texttt{atomicAdd(d\_sum, g)}};
+  % red dashed arrows showing serialization at the global accumulator
+  \foreach \i in {0,...,7} {
+      \draw[contend] (T1_\i.south) -- (G1.north);
+  }
+  \node[body, color=red!75!black] at (0, -20mm)
+       {O(N) global atomics\\ \textbf{warps stall on contention}\\
+        \footnotesize{compute SM\,$=$\,2.75\,\%}};
+\end{scope}
+
+% =============================== Panel 2: SHARED ==============================
+\begin{scope}[xshift=68mm]
+  \node[shared] (P2) at (0, 0) {};
+  \node[head]   at (0,  32mm) {\textsc{mc\_shared}};
+  \node[sub]    at (0,  27mm) {register acc.\ + block reduce};
+  \foreach \i in {0,...,7} {
+      \node[thread] (T2_\i) at (-23mm + \i*6.5mm,  16mm) {t\i};
+  }
+  \node[blkacc] (B2) at (0,  4mm) {block-reduce in shared mem};
+  \node[glob]   (G2) at (0, -8mm) {one \texttt{atomicAdd} per block};
+  \foreach \i in {0,...,7} {
+      \draw[arr] (T2_\i.south) -- (B2.north);
+  }
+  \draw[arr] (B2.south) -- (G2.north);
+  \node[body, color=blue!60!black] at (0, -20mm)
+       {O(N\,/\,blockDim) atomics\\ \textbf{compute-bound, $\sim$80\,\% SM tput}\\
+        \footnotesize{$\sim$3.7$\times$ kernel speedup over naive}};
+\end{scope}
+
+% =============================== Panel 3: ANTITHETIC ==========================
+\begin{scope}[xshift=136mm]
+  \node[anti] (P3) at (0, 0) {};
+  \node[head] at (0,  32mm) {\textsc{mc\_antithetic}};
+  \node[sub]  at (0,  27mm) {variance reduction: $\pm Z$ pairs};
+  \foreach \i in {0,...,7} {
+      \node[thread] (T3_\i) at (-23mm + \i*6.5mm,  16mm) {t\i};
+  }
+  % indicate +Z/-Z pairing
+  \node[font=\footnotesize\itshape, color=black!60] at (0, 11mm)
+       {$g_+ = \max(S_T^{+Z}-K,0)$,\;\; $g_- = \max(S_T^{-Z}-K,0)$};
+  \node[blkacc] (B3) at (0,  4mm) {block-reduce of $\tfrac{1}{2}(g_+ + g_-)$};
+  \node[glob]   (G3) at (0, -8mm) {one \texttt{atomicAdd} per block};
+  \foreach \i in {0,...,7} {
+      \draw[arr] (T3_\i.south) -- (B3.north);
+  }
+  \draw[arr] (B3.south) -- (G3.north);
+  \node[body, color=green!40!black] at (0, -20mm)
+       {same architecture as shared\\ \textbf{variance $\approx$ halved}\\
+        \footnotesize{statistical, not architectural win}};
+\end{scope}
+
+\end{tikzpicture}
+\end{center}

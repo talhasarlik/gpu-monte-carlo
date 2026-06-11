@@ -1,0 +1,54 @@
+% Reduction tree: warp shuffle + shared memory tree -> one atomicAdd.
+% \input{} inside a \block{}.
+\begin{center}
+\begin{tikzpicture}[
+    >=Latex,
+    every node/.style = {font=\footnotesize},
+    lane/.style       = {rectangle, draw=black!60, fill=blue!10, minimum width=4.5mm,
+                          minimum height=5.5mm, inner sep=0pt},
+    warp/.style       = {rectangle, draw=black!60, fill=green!12, minimum width=5.5mm,
+                          minimum height=6.5mm, inner sep=0pt},
+    blk/.style        = {rectangle, rounded corners=1pt, draw=black!70, fill=orange!15,
+                          minimum width=12mm, minimum height=7mm},
+    arr/.style        = {->, thick, >=Latex, draw=black!70},
+    label/.style      = {font=\scriptsize\itshape, color=black!55},
+]
+
+% Row 1: 32 lanes (one warp), per-thread register accumulator
+\foreach \i in {0,...,31} {
+    \node[lane] (L\i) at (\i*5mm, 0) {};
+}
+\node[label, left=2mm of L0] {32 lanes};
+
+% Warp-shuffle reduction (5 levels) collapses to lane 0 of the warp.
+\node[warp] (W0) at (4*5mm + 9*5mm/2, -16mm) {};
+\foreach \i in {0,...,31} {
+    \draw[arr, opacity=0.35] (L\i.south) -- (W0.north);
+}
+\node[label, right=1mm of W0] {warp result\\(lane 0)};
+
+% Imagine 8 warps total (8 in a 256-thread block); show 4 warps for visual clarity.
+\node[warp] (W1) at (-30mm, -32mm) {};
+\node[warp] (W2) at (-10mm, -32mm) {};
+\node[warp] (W3) at ( 10mm, -32mm) {};
+\node[warp] (W4) at ( 30mm, -32mm) {};
+\node[label] at (50mm, -32mm) {$\ldots$\;8 warps};
+
+\node[blk] (SM) at (0mm, -50mm) {shared memory};
+\foreach \w in {W1, W2, W3, W4} {
+    \draw[arr] (\w.south) -- (SM.north);
+}
+
+% Final reduction in shared memory and one atomicAdd to global.
+\node[blk, fill=red!15] (ATOM) at (0mm, -65mm) {atomicAdd $\rightarrow$ global};
+\draw[arr] (SM.south) -- (ATOM.north);
+
+% Annotations on the right.
+\node[label, anchor=west] at (45mm,   0mm) {(1) register accumulation};
+\node[label, anchor=west] at (45mm, -16mm) {(2) warp shuffle (5 steps)};
+\node[label, anchor=west] at (45mm, -32mm) {(3) lane-0 of each warp};
+\node[label, anchor=west] at (45mm, -50mm) {(4) final tree in shared mem};
+\node[label, anchor=west] at (45mm, -65mm) {(5) one atomic per block};
+
+\end{tikzpicture}
+\end{center}

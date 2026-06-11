@@ -1,0 +1,338 @@
+% =====================================================================
+%  GPU-Accelerated Monte Carlo Simulation for Financial Option Pricing
+%  BLG 562E -- Parallel Computing for GPUs using CUDA (Spring 2026, ITU)
+%  Authors: Talha Sarlik, Mehmet Bedirhan Onder
+%
+%  Build:   pdflatex poster.tex   (run twice for cross-references)
+%  Layout:  a0 portrait, 3 columns, ITU CEng template flow.
+% =====================================================================
+\documentclass[portrait,a0b,final]{a0poster}
+
+% ---------- Packages -------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[a0paper,margin=22mm]{geometry}
+
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,shapes,calc}
+\usepackage{listings}
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=*}
+
+\graphicspath{{figures/}}
+
+% ---------- ITU palette ---------------------------------------------
+\definecolor{ituBlue}   {RGB}{0,  60,120}
+\definecolor{ituRed}    {RGB}{198, 12, 48}
+\definecolor{ituGold}   {RGB}{198,156, 38}
+\definecolor{blockBg}   {RGB}{245,248,253}
+\definecolor{blockBorder}{RGB}{200,210,225}
+
+% ---------- Block style (custom \posterblock command) ----------------
+\newtcolorbox{posterblock}[1]{%
+  enhanced,
+  colback=blockBg, colframe=blockBorder,
+  arc=4mm, boxrule=0.6mm,
+  left=8mm, right=8mm, top=4mm, bottom=4mm,
+  title={\strut\textbf{\Large #1}},
+  fonttitle=\bfseries,
+  colbacktitle=ituBlue, coltitle=white,
+  attach boxed title to top left={xshift=10mm, yshift=-6mm},
+  boxed title style={colframe=ituBlue, arc=2mm, boxrule=0.4mm,
+                     left=5mm, right=5mm, top=1.2mm, bottom=1.2mm},
+  before skip=8mm, after skip=8mm,
+}
+
+% ---------- Body type ------------------------------------------------
+\renewcommand{\familydefault}{\sfdefault}     % sans body
+\linespread{1.06}
+
+% =====================================================================
+\begin{document}
+\pagestyle{empty}
+
+% =====================================================================
+%  Title banner
+% =====================================================================
+\begin{tcolorbox}[enhanced, colback=ituBlue, colframe=ituBlue,
+                  arc=4mm, boxrule=0pt, left=10mm, right=10mm,
+                  top=8mm, bottom=6mm]
+\centering
+\color{white}
+{\Huge\bfseries GPU-Accelerated Monte Carlo Simulation\\
+for Financial Option Pricing\par}
+\vspace{6mm}
+{\LARGE Talha Sarlık (704241052) \quad$\cdot$\quad Mehmet Bedirhan Önder (704251026)\par}
+\vspace{3mm}
+{\large BLG 562E -- Parallel Computing for GPUs using CUDA \quad$\cdot$\quad
+Asst. Prof. Ayşe Yılmazer \quad$\cdot$\quad Spring 2026\par}
+{\large Faculty of Computer and Informatics Engineering \quad$\cdot$\quad
+Istanbul Technical University\par}
+\end{tcolorbox}
+
+\vspace{6mm}
+
+% =====================================================================
+%  Three columns
+% =====================================================================
+\noindent
+\begin{minipage}[t]{0.315\textwidth}
+% =================== Column 1 ========================================
+
+\begin{posterblock}{Introduction}
+Monte Carlo (MC) is the standard tool for pricing path-dependent
+financial options when no closed-form solution exists. For European
+options the analytical Black--Scholes formula provides exact ground
+truth, which we use as a \emph{validation oracle}.
+\par\medskip
+The algorithm is \textbf{embarrassingly parallel}: each simulated
+price path is an independent random walk under Geometric Brownian
+Motion. This makes MC a textbook fit for CUDA -- but extracting the
+parallelism requires careful attention to memory hierarchy and
+reduction patterns.
+\end{posterblock}
+
+\begin{posterblock}{Motivation}
+A single-threaded CPU prices one European call at $5\times10^{7}$
+paths in about \textbf{1.6\,s}. The same workload on a consumer
+GTX~1650 takes \textbf{$\sim$1\,ms}. Translating this textbook
+parallelism into $>$1000$\times$ wall-clock speedup is not automatic
+-- the difference between a naive and an optimised kernel is itself a
+\textbf{3.7$\times$ kernel-level speedup}, and an unsafe FP32 atomic
+reduction produces a \emph{numerically wrong} answer at large $N$.
+This poster quantifies that gap and identifies the bottleneck per
+implementation with Nsight Compute.
+\end{posterblock}
+
+\begin{posterblock}{Contributions}
+\begin{enumerate}
+\item Three progressively-tuned CUDA kernels for European MC option
+      pricing: \texttt{mc\_naive} (global atomics), \texttt{mc\_shared}
+      (block-level reduction), \texttt{mc\_antithetic} (variance
+      reduction).
+\item Validation against the analytical Black--Scholes price to
+      within sub-$\sigma$ tolerance at $N=10^{6}$.
+\item Profiler-driven bottleneck analysis: each optimisation step is
+      justified by a specific Nsight Compute signal (atomic
+      contention $\rightarrow$ compute-bound).
+\item Reproducible benchmark sweep over $10^{4}\!\rightarrow\!5\times10^{7}$
+      paths, median of 5 runs.
+\item Headline: \textbf{1133$\times$} (shared) and
+      \textbf{1652$\times$} (antithetic) speedup over the CPU
+      baseline at $N=5\times10^{7}$.
+\end{enumerate}
+\end{posterblock}
+
+\begin{posterblock}{Algorithm Flow}
+\input{diagrams/algorithm_flow.tex}
+\end{posterblock}
+
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.315\textwidth}
+% =================== Column 2 ========================================
+
+\begin{posterblock}{Problem Definition}
+\textbf{European call option.} Right to buy underlying at strike $K$
+at expiry $T$. Under Black--Scholes assumptions the underlying
+follows Geometric Brownian Motion:
+\[
+dS_t = r\,S_t\,dt + \sigma\,S_t\,dW_t.
+\]
+Closed-form for the terminal price (one Euler step is exact under
+GBM):
+\[
+S_T = S_0\exp\!\Bigl(\bigl(r-\tfrac{1}{2}\sigma^{2}\bigr)T
+                     + \sigma\sqrt{T}\,Z\Bigr),\quad
+Z\sim\mathcal{N}(0,1).
+\]
+\textbf{Monte Carlo estimator} -- discounted average of $N$ i.i.d.\
+payoffs:
+\[
+\hat{C} = e^{-rT}\,\frac{1}{N}\sum_{i=1}^{N}\max\!\bigl(S_T^{(i)}-K,\,0\bigr).
+\]
+\textbf{Convergence.} Standard error shrinks as
+$\mathcal{O}(N^{-1/2})$: quadrupling $N$ halves the error, motivating
+GPU throughput.
+\par\smallskip
+\textbf{Validation oracle.} Analytical Black--Scholes call
+\(
+C = S_0\,\Phi(d_1) - K e^{-rT}\Phi(d_2).
+\)
+\par\smallskip
+\textbf{Parameters used throughout:} $S_0=K=100$, $r=0.05$,
+$\sigma=0.2$, $T=1.0$. Analytical price $=\mathbf{10.4506}$.
+\end{posterblock}
+
+\begin{posterblock}{Kernel Variants}
+\textbf{\texttt{mc\_naive}.} One thread per path slice (grid-stride
+loop). \texttt{atomicAdd} per path on a global accumulator. Memory
+pattern is the bottleneck -- every payoff serialises on
+\texttt{*d\_sum}, \emph{and} FP32 accumulation loses precision at
+large $N$ (mc\_naive @ $5\!\times\!10^{7}$ paths reports
+price~$=9.95$ vs analytical $10.45$).
+\par\smallskip
+\textbf{\texttt{mc\_shared}.} Each thread accumulates its slice's
+$(sum,\,sum^2)$ in \textbf{registers}, then a single
+\texttt{block\_reduce\_sum()} (warp shuffle $\rightarrow$ shared-memory
+tree $\rightarrow$ thread~0) writes \textbf{one} \texttt{atomicAdd}
+per block. Atomic count drops from $\mathcal{O}(N)$ to
+$\mathcal{O}(N/\text{blockDim})$.
+\par\smallskip
+\textbf{\texttt{mc\_antithetic}.} For each $Z$ drawn, evaluate the
+payoff at $+Z$ and $-Z$ and average as one effective sample.
+Identical block-level reduction as \texttt{mc\_shared}. Halves the
+variance for monotonic payoffs (proven for European calls/puts)
+without doubling RNG cost.
+\par\medskip
+\centerline{\textit{Architectural difference, in one figure:}}
+\medskip
+\input{diagrams/kernel_architecture.tex}
+\end{posterblock}
+
+\begin{posterblock}{Reduction Internals}
+\input{diagrams/reduction_tree.tex}
+\end{posterblock}
+
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.315\textwidth}
+% =================== Column 3 ========================================
+
+\begin{posterblock}{Experimental Setup}
+\textbf{GPU:} NVIDIA GTX~1650 (\texttt{sm\_75}, 16 SMs, 4\,GB), CUDA
+12.4, driver 566.36, Windows~11.\par
+\textbf{CPU baseline:} single-threaded, \texttt{-O3 -march=native}.\par
+\textbf{Sweep:} $N \in \{10^{4},\,10^{5},\,10^{6},\,10^{7},\,
+2.5\!\times\!10^{7},\,5\!\times\!10^{7}\}$.\par
+\textbf{Reporting:} median of 5 runs, warmup discarded; warm-cache
+kernel time only (does not include the one-shot \texttt{curand\_init}).
+\end{posterblock}
+
+\begin{posterblock}{A. Validation}
+At $N = 10^{6}$ paths, all four implementations agree with the
+analytical Black--Scholes price within 4-$\sigma$:
+\par\medskip
+\centering
+\begin{tabular}{lrrrc}
+\toprule
+\textbf{Implementation} & \textbf{Estimate} & \textbf{Abs.\ Err.} &
+\textbf{$\sigma$} & \textbf{Status}\\
+\midrule
+\texttt{mc\_cpu}        & 10.4501 & 0.0005 & 0.0 & PASS \\
+\texttt{mc\_naive}      & 10.4718 & 0.0212 & 1.4 & PASS \\
+\texttt{mc\_shared}     & 10.4719 & 0.0213 & 1.4 & PASS \\
+\texttt{mc\_antithetic} & 10.4593 & 0.0088 & 0.8 & PASS \\
+\bottomrule
+\end{tabular}
+\end{posterblock}
+
+\begin{posterblock}{B. Throughput \& Speedup}
+\centering
+\includegraphics[width=\linewidth]{figures/fig_throughput.pdf}\par
+\medskip
+\includegraphics[width=\linewidth]{figures/fig_speedup.pdf}\par
+\medskip
+\includegraphics[width=\linewidth]{figures/fig_speedup_bars.pdf}
+\end{posterblock}
+
+\begin{posterblock}{C. Profiler-Driven Bottleneck Analysis}
+\centering
+\begin{tabular}{lrrrl}
+\toprule
+\textbf{Kernel} & \textbf{Occ.} & \textbf{Compute} & \textbf{DRAM} &
+\textbf{Bottleneck}\\
+\midrule
+\texttt{mc\_naive}      & 93.8\% &  \textbf{2.8\%} & 0.03\% & atomic contention\\
+\texttt{mc\_shared}     & 74.6\% & \textbf{79.4\%} & 3.5\%  & compute (arith.-bound)\\
+\texttt{mc\_antithetic} & 72.8\% & \textbf{76.4\%} & 5.1\%  & same; statistical win\\
+\bottomrule
+\end{tabular}\par
+\smallskip
+\footnotesize Nsight Compute @ $N=10^{7}$, GTX~1650. Occupancy ``looks
+healthy'' for \texttt{mc\_naive} but compute throughput exposes the
+truth: SMs are full of warps, all stalled on \texttt{atomicAdd}.
+\par\medskip
+\includegraphics[width=\linewidth]{figures/fig_nsight_metrics.pdf}
+\end{posterblock}
+
+\begin{posterblock}{D. Convergence}
+\centering
+\includegraphics[width=\linewidth]{figures/fig_convergence.pdf}\par
+\smallskip
+\footnotesize All implementations track the $1/\sqrt{N}$ reference;
+antithetic variates sit \textbf{below} the line -- variance reduction
+at no additional architectural cost. The naive kernel \emph{leaves}
+the line at $N\!\gtrsim\!2.5\!\times\!10^{7}$ because FP32 atomic
+accumulation loses precision.
+\end{posterblock}
+
+\begin{posterblock}{Conclusion \& Future Work}
+\begin{itemize}
+\item Block-level reduction with register accumulation
+      \textbf{eliminates atomic contention} and lifts achieved
+      compute throughput from 2.8\% to 79\%, a
+      \textbf{3.7$\times$ kernel-level speedup} over the naive
+      version, on top of the GPU-vs-CPU gain.
+\item The optimised kernel is then \textbf{arithmetic-bound};
+      further wins must attack the RNG (Philox vs XORWOW: smaller
+      state, $\sim$3$\times$ faster init).
+\item \textbf{Antithetic variates} cut variance by $\sim$50\% on
+      monotonic European payoffs at the \emph{same} architectural
+      profile -- a statistical, not architectural, speedup.
+\item \textbf{FP32 atomic accumulation is unsafe} at scale; this is
+      the strongest reason on its own to reduce in shared memory.
+\item End-to-end: \textbf{1652$\times$} faster than single-threaded
+      CPU at $5\!\times\!10^{7}$ paths, validated to within 0.8\,$\sigma$
+      of the Black--Scholes oracle.
+\end{itemize}
+\textbf{Future work.} XORWOW $\rightarrow$ Philox RNG; CUDA streams
+to overlap \texttt{curand\_init} with the pricing kernel; extension
+to path-dependent options (Asian, barrier) where MC has no
+closed-form competitor.
+\end{posterblock}
+
+\begin{posterblock}{References}
+\footnotesize
+\begin{enumerate}
+\item F.~Black and M.~Scholes, ``The Pricing of Options and Corporate
+      Liabilities,'' \emph{J. Political Economy}, 1973.
+\item P.~Glasserman, \emph{Monte Carlo Methods in Financial
+      Engineering}, Springer, 2003.
+\item J.~Salmon \emph{et al.}, ``Parallel Random Numbers: As Easy as
+      1, 2, 3,'' SC'11.
+\item D.~Kirk and W.-m.~Hwu, \emph{Programming Massively Parallel
+      Processors}, 4th ed., 2022.
+\item NVIDIA cuRAND Library Programming Guide (CUDA 12.4).
+\item NVIDIA CUDA C Best Practices Guide.
+\item NVIDIA Nsight Compute Documentation.
+\end{enumerate}
+\end{posterblock}
+
+\end{minipage}
+
+\vspace{8mm}
+
+% =====================================================================
+%  Footer
+% =====================================================================
+\begin{tcolorbox}[enhanced, colback=ituBlue, colframe=ituBlue,
+                  arc=2mm, boxrule=0pt, left=10mm, right=10mm,
+                  top=3mm, bottom=3mm]
+\centering\color{white}\large
+Faculty of Computer and Informatics Engineering \quad$\cdot$\quad
+Department of Computer Engineering \quad$\cdot$\quad
+Istanbul Technical University \quad$\cdot$\quad
+İTÜ Ayazağa Campus, 34469, Maslak/Istanbul \quad$\cdot$\quad
+\texttt{talhasarlik10@gmail.com}
+\end{tcolorbox}
+
+\end{document}

@@ -1,20 +1,14 @@
-# Build artifacts
+# Build artifacts (machine-specific, recreated by nvcc / msbuild)
 build/
 *.o
 *.so
 *.exe
+*.lib
+*.exp
+*.pdb
+*.dll
 
-# Profiling output
-*.ncu-rep
-*.nsys-rep
-*.qdrep
-*.sqlite
-
-# Results (keep .gitkeep, ignore everything else)
-results/*
-!results/.gitkeep
-
-# Python
+# Python cache and virtual environments
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
@@ -22,12 +16,15 @@ __pycache__/
 .venv/
 venv/
 
-# Editor
+# Editor / IDE
 .vscode/
 .idea/
 *.swp
 *~
 .DS_Store
+
+# Office lock files (temp while a doc is open in Word/PowerPoint)
+~$*
 
 # Notebook outputs (uncomment if you want to strip them)
 # notebooks/*.ipynb

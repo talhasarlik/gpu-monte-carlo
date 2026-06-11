@@ -1,0 +1,148 @@
+﻿==PROF== Connected to process 26848 (C:\Users\talha\Desktop\yl\dersler\parallel-programming-with-CUDA\gpu-monte-carlo\build\mc_shared.exe)
+==PROF== Profiling "mc_init_rng_kernel" - 0: 0%....50%....100% - 9 passes
+==PROF== Profiling "mc_shared_kernel" - 1: 0%....50%....100% - 9 passes
+Parameters: N=10000000  S0=100.00  K=100.00  r=0.0500  sigma=0.2000  T=1.00  steps=1  seed=42  type=call
+GPU (shared) Monte Carlo result:
+  estimate     = 10.445929  (95% CI: 10.445929 +/- 0.009117)
+  analytical   = 10.450584
+  abs error    = 0.004654
+  init time    = 324.88 ms
+  kernel time  = 108.14 ms
+  throughput   = 92.47 M paths/sec
+  grid         = 64 blocks x 256 threads (16384 total)
+==PROF== Disconnected from process 26848
+[26848] mc_shared.exe@127.0.0.1
+  mc_init_rng_kernel(curandStateXORWOW *, unsigned long, int) (64, 1, 1)x(256, 1, 1), Device 0, CC 7.5, Invocations 1
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ------------- ---------- ---------- ----------
+    Metric Name               Metric Unit    Minimum    Maximum    Average
+    ----------------------- ------------- ---------- ---------- ----------
+    DRAM Frequency          cycle/nsecond       3,99       3,99       3,99
+    SM Frequency            cycle/nsecond       1,39       1,39       1,39
+    Elapsed Cycles                  cycle 948.119,00 948.119,00 948.119,00
+    Memory Throughput                   %      76,50      76,50      76,50
+    DRAM Throughput                     %       2,73       2,73       2,73
+    Duration                      usecond     679,84     679,84     679,84
+    L1/TEX Cache Throughput             %      92,23      92,23      92,23
+    L2 Cache Throughput                 %       8,85       8,85       8,85
+    SM Active Cycles                cycle 785.465,25 785.465,25 785.465,25
+    Compute (SM) Throughput             %      76,50      76,50      76,50
+    ----------------------- ------------- ---------- ---------- ----------
+
+    Section: GPU and Memory Workload Distribution
+    -------------------------- ----------- ------------- ------------- -------------
+    Metric Name                Metric Unit       Minimum       Maximum       Average
+    -------------------------- ----------- ------------- ------------- -------------
+    Average DRAM Active Cycles       cycle     74.201,00     74.201,00     74.201,00
+    Total DRAM Elapsed Cycles        cycle 10.862.592,00 10.862.592,00 10.862.592,00
+    Average L1 Active Cycles         cycle    785.465,25    785.465,25    785.465,25
+    Total L1 Elapsed Cycles          cycle 15.152.168,00 15.152.168,00 15.152.168,00
+    Average L2 Active Cycles         cycle    420.089,38    420.089,38    420.089,38
+    Total L2 Elapsed Cycles          cycle  7.252.456,00  7.252.456,00  7.252.456,00
+    Average SM Active Cycles         cycle    785.465,25    785.465,25    785.465,25
+    Total SM Elapsed Cycles          cycle 15.152.168,00 15.152.168,00 15.152.168,00
+    Average SMSP Active Cycles       cycle    782.789,08    782.789,08    782.789,08
+    Total SMSP Elapsed Cycles        cycle 60.608.672,00 60.608.672,00 60.608.672,00
+    -------------------------- ----------- ------------- ------------- -------------
+
+    Section: Launch Statistics
+    -------------------------------- --------------- --------- --------- ---------
+    Metric Name                          Metric Unit   Minimum   Maximum   Average
+    -------------------------------- --------------- --------- --------- ---------
+    Block Size                                          256,00    256,00    256,00
+    Grid Size                                            64,00     64,00     64,00
+    Registers Per Thread             register/thread     63,00     63,00     63,00
+    Shared Memory Configuration Size           Kbyte     32,77     32,77     32,77
+    Driver Shared Memory Per Block        byte/block      0,00      0,00      0,00
+    Dynamic Shared Memory Per Block       byte/block      0,00      0,00      0,00
+    Static Shared Memory Per Block        byte/block      0,00      0,00      0,00
+    # SMs                                         SM     16,00     16,00     16,00
+    Threads                                   thread 16.384,00 16.384,00 16.384,00
+    Uses Green Context                                    0,00      0,00      0,00
+    Waves Per SM                                          1,00      1,00      1,00
+    -------------------------------- --------------- --------- --------- ---------
+
+    Section: Occupancy
+    ------------------------------- ----------- ------- ------- -------
+    Metric Name                     Metric Unit Minimum Maximum Average
+    ------------------------------- ----------- ------- ------- -------
+    Block Limit SM                        block   16,00   16,00   16,00
+    Block Limit Registers                 block    4,00    4,00    4,00
+    Block Limit Shared Mem                block   16,00   16,00   16,00
+    Block Limit Warps                     block    4,00    4,00    4,00
+    Theoretical Active Warps per SM        warp   32,00   32,00   32,00
+    Theoretical Occupancy                     %  100,00  100,00  100,00
+    Achieved Occupancy                        %   63,30   63,30   63,30
+    Achieved Active Warps Per SM           warp   20,25   20,25   20,25
+    ------------------------------- ----------- ------- ------- -------
+
+  mc_shared_kernel(curandStateXORWOW *, long, float, float, float, float, int, float *, float *) (64, 1, 1)x(256, 1, 1), Device 0, CC 7.5, Invocations 1
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ------------- ---------- ---------- ----------
+    Metric Name               Metric Unit    Minimum    Maximum    Average
+    ----------------------- ------------- ---------- ---------- ----------
+    DRAM Frequency          cycle/nsecond       3,98       3,98       3,98
+    SM Frequency            cycle/nsecond       1,39       1,39       1,39
+    Elapsed Cycles                  cycle 380.063,00 380.063,00 380.063,00
+    Memory Throughput                   %       3,46       3,46       3,46
+    DRAM Throughput                     %       3,46       3,46       3,46
+    Duration                      usecond     273,12     273,12     273,12
+    L1/TEX Cache Throughput             %       1,54       1,54       1,54
+    L2 Cache Throughput                 %       1,77       1,77       1,77
+    SM Active Cycles                cycle 376.166,31 376.166,31 376.166,31
+    Compute (SM) Throughput             %      79,41      79,41      79,41
+    ----------------------- ------------- ---------- ---------- ----------
+
+    Section: GPU and Memory Workload Distribution
+    -------------------------- ----------- ------------- ------------- -------------
+    Metric Name                Metric Unit       Minimum       Maximum       Average
+    -------------------------- ----------- ------------- ------------- -------------
+    Average DRAM Active Cycles       cycle     37.655,00     37.655,00     37.655,00
+    Total DRAM Elapsed Cycles        cycle  4.352.000,00  4.352.000,00  4.352.000,00
+    Average L1 Active Cycles         cycle    376.166,31    376.166,31    376.166,31
+    Total L1 Elapsed Cycles          cycle  6.070.376,00  6.070.376,00  6.070.376,00
+    Average L2 Active Cycles         cycle     25.233,75     25.233,75     25.233,75
+    Total L2 Elapsed Cycles          cycle  2.913.800,00  2.913.800,00  2.913.800,00
+    Average SM Active Cycles         cycle    376.166,31    376.166,31    376.166,31
+    Total SM Elapsed Cycles          cycle  6.070.376,00  6.070.376,00  6.070.376,00
+    Average SMSP Active Cycles       cycle    375.967,94    375.967,94    375.967,94
+    Total SMSP Elapsed Cycles        cycle 24.281.504,00 24.281.504,00 24.281.504,00
+    -------------------------- ----------- ------------- ------------- -------------
+
+    Section: Launch Statistics
+    -------------------------------- --------------- --------- --------- ---------
+    Metric Name                          Metric Unit   Minimum   Maximum   Average
+    -------------------------------- --------------- --------- --------- ---------
+    Block Size                                          256,00    256,00    256,00
+    Grid Size                                            64,00     64,00     64,00
+    Registers Per Thread             register/thread     27,00     27,00     27,00
+    Shared Memory Configuration Size           Kbyte     32,77     32,77     32,77
+    Driver Shared Memory Per Block        byte/block      0,00      0,00      0,00
+    Dynamic Shared Memory Per Block       byte/block      0,00      0,00      0,00
+    Static Shared Memory Per Block        byte/block    256,00    256,00    256,00
+    # SMs                                         SM     16,00     16,00     16,00
+    Threads                                   thread 16.384,00 16.384,00 16.384,00
+    Uses Green Context                                    0,00      0,00      0,00
+    Waves Per SM                                          1,00      1,00      1,00
+    -------------------------------- --------------- --------- --------- ---------
+
+    Section: Occupancy
+    ------------------------------- ----------- ------- ------- -------
+    Metric Name                     Metric Unit Minimum Maximum Average
+    ------------------------------- ----------- ------- ------- -------
+    Block Limit SM                        block   16,00   16,00   16,00
+    Block Limit Registers                 block    8,00    8,00    8,00
+    Block Limit Shared Mem                block  128,00  128,00  128,00
+    Block Limit Warps                     block    4,00    4,00    4,00
+    Theoretical Active Warps per SM        warp   32,00   32,00   32,00
+    Theoretical Occupancy                     %  100,00  100,00  100,00
+    Achieved Occupancy                        %   74,64   74,64   74,64
+    Achieved Active Warps Per SM           warp   23,89   23,89   23,89
+    ------------------------------- ----------- ------- ------- -------
+
+  Note: The shown averages are calculated as the arithmetic mean of the metric values after the evaluation of the    
+  metrics for each individual kernel launch.                                                                         
+  If aggregating across varying launch configurations (like shared memory, cache config settings), the arithmetic    
+  mean can be misleading and looking at the individual results is recommended instead.                               
+  This output mode is backwards compatible to the per-kernel summary output of nvprof                                
+

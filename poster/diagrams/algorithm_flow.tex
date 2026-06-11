@@ -1,0 +1,39 @@
+% Algorithm flow: GBM sampling -> payoff -> block reduction -> host CI
+% Standalone fragment: \input{} this file inside a \block{} on the poster.
+\begin{center}
+\begin{tikzpicture}[
+    >=Latex,
+    node distance = 7mm and 10mm,
+    box/.style   = {rectangle, rounded corners=2pt, draw=black!70, thick,
+                    fill=blue!8, minimum width=58mm, minimum height=11mm,
+                    align=center, font=\normalsize},
+    gpu/.style   = {box, fill=green!10},
+    host/.style  = {box, fill=orange!12},
+    note/.style  = {font=\footnotesize\itshape, color=black!55, align=left},
+    every path/.style = {thick, ->, >=Latex},
+]
+
+\node[host] (init)   {Host: parse params, allocate device buffers};
+\node[gpu, below=of init]   (rng)    {{\bfseries init\_rng\_kernel}\\
+                                      cuRAND XORWOW state per thread};
+\node[gpu, below=of rng]    (loop)   {{\bfseries mc\_*\_kernel} (grid-stride loop)\\
+                                      $Z\sim\mathcal{N}(0,1)$;\;
+                                      $S_T=S_0e^{(r-\sigma^2/2)T+\sigma\sqrt{T}\,Z}$;\;
+                                      $g=\max(S_T-K,0)$};
+\node[gpu, below=of loop]   (reduce) {Block-level reduction\\
+                                      (warp shuffle $\rightarrow$ shared memory)};
+\node[gpu, below=of reduce] (atomic) {One \texttt{atomicAdd} per block\\
+                                      to global accumulators $d\_sum$, $d\_sum^2$};
+\node[host, below=of atomic] (finish){Host: discount, $\hat{C} = e^{-rT}\,\bar{g}$, 95\% CI};
+
+\draw (init)   -- (rng);
+\draw (rng)    -- (loop);
+\draw (loop)   -- (reduce);
+\draw (reduce) -- (atomic);
+\draw (atomic) -- (finish);
+
+\node[note, right=2mm of rng]    {one-shot, amortised over kernel launches};
+\node[note, right=2mm of loop]   {N independent paths,\\ one block per SM wave};
+\node[note, right=2mm of reduce] {O(N/blockDim) atomics,\\ not O(N)};
+\end{tikzpicture}
+\end{center}
